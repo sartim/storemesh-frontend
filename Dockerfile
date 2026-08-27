@@ -3,8 +3,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-ARG NEXT_PUBLIC_BFF_URL=http://localhost:8080/api/v1
+ARG NEXT_PUBLIC_BFF_URL=/api/v1
+ARG BFF_INTERNAL_URL=http://storemesh-bff.storemesh-bff.svc.cluster.local:8080
 ENV NEXT_PUBLIC_BFF_URL=$NEXT_PUBLIC_BFF_URL
+ENV BFF_INTERNAL_URL=$BFF_INTERNAL_URL
 RUN npm run build
 
 FROM node:22-alpine AS runtime
