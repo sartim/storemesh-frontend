@@ -11,6 +11,7 @@ RUN npm run build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
+LABEL org.opencontainers.image.source="https://github.com/sartim/storemesh-frontend"
 ENV NODE_ENV=production
 ENV PORT=3000
 ARG BFF_INTERNAL_URL=http://storemesh-bff.storemesh-bff.svc.cluster.local:8080
