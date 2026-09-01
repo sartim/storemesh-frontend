@@ -25,3 +25,9 @@ Configure `NEXT_PUBLIC_KEYCLOAK_ISSUER`, `NEXT_PUBLIC_KEYCLOAK_REALM`, and
 `NEXT_PUBLIC_KEYCLOAK_CLIENT_ID` for the local `storemesh-web` client before
 enabling the OIDC bootstrap. The BFF remains the only API endpoint used by the
 browser.
+
+When `NEXT_PUBLIC_KEYCLOAK_ISSUER` is set, the app uses Keycloak
+`login-required` with Authorization Code + PKCE (`S256`) and no longer renders
+the password-login flow. The current compatibility form is used only when the
+issuer variable is absent. Local development uses the `storemesh-web` client
+with a `http://localhost:3000/*` redirect URI.

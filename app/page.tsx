@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { keycloak, logoutOIDC, refreshOIDCToken, startOIDCLogin } from "../lib/oidc";
 
 type Product = { id: string; sku?: string; name: string; description?: string; priceMinor?: number; currency?: string };
 type AuthResponse = { accessToken?: string; access_token?: string };
@@ -13,6 +14,7 @@ type RolesResponse = { roles?: Array<{ name?: string }> };
 
 const API = process.env.NEXT_PUBLIC_BFF_URL ?? "/api/v1";
 const TOKEN_KEY = "storemesh.access_token";
+const OIDC_ENABLED = Boolean(process.env.NEXT_PUBLIC_KEYCLOAK_ISSUER);
 
 async function request<T>(path: string, options: RequestInit = {}, token = ""): Promise<T> {
   const headers = new Headers(options.headers);
@@ -49,6 +51,10 @@ export default function Home() {
   const [loginError, setLoginError] = useState(""); const [status, setStatus] = useState(""); const [orderResult, setOrderResult] = useState(""); const [ordersError, setOrdersError] = useState(""); const [adminError, setAdminError] = useState("");
 
   useEffect(() => { const saved = window.sessionStorage.getItem(TOKEN_KEY); if (saved) setSession(readSession(saved)); }, []);
+  useEffect(() => {
+    if (!OIDC_ENABLED) return;
+    void startOIDCLogin().then(async () => { await refreshOIDCToken(); if (keycloak.token) { window.sessionStorage.setItem(TOKEN_KEY, keycloak.token); setSession(readSession(keycloak.token)); } });
+  }, []);
   useEffect(() => { if (!session) return; void loadProducts(session.token); void loadOrders(session, ""); }, [session]);
 
   async function loadProducts(token: string) {
@@ -80,7 +86,7 @@ export default function Home() {
   async function cancelOrder(id: string) { if (!session || !window.confirm("Cancel this order?")) return; try { await request(`/orders/${id}:cancel`, { method: "POST" }, session.token); await loadOrders(session, ""); } catch (error) { setOrdersError(error instanceof Error ? error.message : "Unable to cancel order"); } }
   async function changeRole(userID: string, role: string, method: "PUT" | "DELETE") { if (!session) return; try { await request(`/admin/users/${userID}/roles/${encodeURIComponent(role)}`, { method }, session.token); await loadAdmin(session); } catch (error) { setAdminError(error instanceof Error ? error.message : "Unable to update role"); } }
   async function deleteUser(userID: string) { if (!session || !window.confirm("Delete this user?")) return; try { await request(`/admin/users/${userID}`, { method: "DELETE" }, session.token); await loadAdmin(session); } catch (error) { setAdminError(error instanceof Error ? error.message : "Unable to delete user"); } }
-  function logout() { window.sessionStorage.removeItem(TOKEN_KEY); setSession(null); setProducts([]); setOrders([]); setUsers([]); }
+  function logout() { window.sessionStorage.removeItem(TOKEN_KEY); setSession(null); setProducts([]); setOrders([]); setUsers([]); if (OIDC_ENABLED) void logoutOIDC(); }
 
   if (!session) return <main className="auth-shell"><div className="auth-art"><span className="eyebrow">STOREMESH / EVERYDAY GOODS</span><h1>Good things,<br />thoughtfully chosen.</h1><p>Useful objects for calmer desks, slower mornings, and better days.</p></div><section className="card auth-card"><span className="eyebrow">WELCOME BACK</span><h2>Sign in to your store</h2><form onSubmit={login}><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label><button type="submit">Continue</button></form><p className="error">{loginError}</p></section></main>;
 
