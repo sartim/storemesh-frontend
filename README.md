@@ -30,6 +30,14 @@ source of truth; decoded roles must not be treated as a security boundary.
 The frontend Helm chart includes an optional Ingress, disabled by default.
 Enable it and set `ingress.host` after an ingress controller is installed.
 
+## GraphQL composition
+
+The storefront catalog uses the authenticated Go BFF GraphQL endpoint at
+`POST /api/v1/graphql` through `lib/graphql.ts`. The `products` query is used
+for catalog reads; REST remains in use for the current cart, order, and admin
+flows while those screens migrate incrementally to the corresponding GraphQL
+queries and mutations.
+
 The web client is migrating to Keycloak OIDC with Authorization Code + PKCE.
 Configure `NEXT_PUBLIC_KEYCLOAK_ISSUER`, `NEXT_PUBLIC_KEYCLOAK_REALM`, and
 `NEXT_PUBLIC_KEYCLOAK_CLIENT_ID` for the local `storemesh-web` client before

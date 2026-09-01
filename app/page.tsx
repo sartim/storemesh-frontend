@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { keycloak, logoutOIDC, refreshOIDCToken, startOIDCLogin } from "../lib/oidc";
 import { Cart, emptyCart, loadCart, saveCart } from "../lib/cart";
 import { CartPanel } from "../components/CartPanel";
+import { graphQLRequest, PRODUCT_QUERY } from "../lib/graphql";
 
 type Product = { id: string; sku?: string; name: string; description?: string; priceMinor?: number; currency?: string };
 type AuthResponse = { accessToken?: string; access_token?: string };
@@ -62,7 +63,7 @@ export default function Home() {
 
   async function loadProducts(token: string) {
     setStatus("Loading catalog…");
-    try { const result = await request<{ products?: Product[] }>("/products?page_size=100", {}, token); const next = result.products ?? []; setProducts(next); setSelectedProduct((current) => current || next[0]?.id || ""); setStatus(`${next.length} product${next.length === 1 ? "" : "s"} available`); }
+    try { const result = await graphQLRequest<{ products?: { products?: Product[] } }>(API, token, PRODUCT_QUERY, { pageSize: 100, status: "ACTIVE" }); const next = result.products?.products ?? []; setProducts(next); setSelectedProduct((current) => current || next[0]?.id || ""); setStatus(`${next.length} product${next.length === 1 ? "" : "s"} available`); }
     catch (error) { setStatus(error instanceof Error ? error.message : "Unable to load catalog"); }
   }
   async function loadOrders(currentSession: Session, pageToken: string) {
