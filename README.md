@@ -15,13 +15,13 @@ Next.js rewrites them to the internal BFF using `BFF_INTERNAL_URL`.
 
 ## Persistent cart
 
-The storefront loads the authenticated customer's cart from `GET /cart` and
-saves changes through `PUT /cart`; `DELETE /cart` clears it. Cart state is
-owned by Order Service persistence behind the BFF, so the same customer can
-resume the cart from another signed-in client. The current MVP exposes a
-saved-cart panel with product labels, quantity controls, removal, and clear
-actions. Checkout submits every saved line with an idempotency key and clears
-the server cart only after the order succeeds.
+The storefront loads, updates, and clears the authenticated customer's cart
+through the BFF GraphQL `cart`, `updateCart`, and `clearCart` operations. Cart
+state is owned by Order Service persistence behind the BFF, so the same
+customer can resume the cart from another signed-in client. Checkout uses the
+GraphQL `createOrder` mutation with an idempotency key and clears the server
+cart only after the order succeeds. Order cancellation and admin actions still
+use REST until equivalent GraphQL mutations are defined.
 
 The access token is used to establish the current user context for navigation
 and to scope customer order-history requests. Backend authorization remains the
@@ -32,11 +32,11 @@ Enable it and set `ingress.host` after an ingress controller is installed.
 
 ## GraphQL composition
 
-The storefront catalog uses the authenticated Go BFF GraphQL endpoint at
+The storefront catalog, cart, order history, and checkout use the authenticated Go BFF GraphQL endpoint at
 `POST /api/v1/graphql` through `lib/graphql.ts`. The `products` query is used
-for catalog reads; REST remains in use for the current cart, order, and admin
-flows while those screens migrate incrementally to the corresponding GraphQL
-queries and mutations.
+for catalog reads, with `cart`, `orders`, `updateCart`, `clearCart`, and
+`createOrder` covering customer commerce flows. REST remains in use for order
+cancellation and admin operations.
 
 The web client is migrating to Keycloak OIDC with Authorization Code + PKCE.
 Configure `NEXT_PUBLIC_KEYCLOAK_ISSUER`, `NEXT_PUBLIC_KEYCLOAK_REALM`, and

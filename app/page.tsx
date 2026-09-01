@@ -2,9 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { keycloak, logoutOIDC, refreshOIDCToken, startOIDCLogin } from "../lib/oidc";
-import { Cart, emptyCart, loadCart, saveCart } from "../lib/cart";
+import { Cart } from "../lib/cart";
 import { CartPanel } from "../components/CartPanel";
-import { graphQLRequest, PRODUCT_QUERY } from "../lib/graphql";
+import { CART_QUERY, CLEAR_CART_MUTATION, CREATE_ORDER_MUTATION, graphQLRequest, ORDERS_QUERY, PRODUCT_QUERY, UPDATE_CART_MUTATION } from "../lib/graphql";
 
 type Product = { id: string; sku?: string; name: string; description?: string; priceMinor?: number; currency?: string };
 type AuthResponse = { accessToken?: string; access_token?: string };
@@ -14,6 +14,7 @@ type OrdersResponse = { orders?: Order[]; nextPageToken?: string; next_page_toke
 type User = { id?: string; email?: string; status?: string; roles?: string[] };
 type UsersResponse = { users?: User[] };
 type RolesResponse = { roles?: Array<{ name?: string }> };
+type GraphQLOrder = { id: string; customerId: string; status: string; totalMinor: number; currency: string; createdAt: string };
 
 const API = process.env.NEXT_PUBLIC_BFF_URL ?? "/api/v1";
 const TOKEN_KEY = "storemesh.access_token";
@@ -59,7 +60,7 @@ export default function Home() {
     if (!OIDC_ENABLED) return;
     void startOIDCLogin().then(async () => { await refreshOIDCToken(); if (keycloak.token) { window.sessionStorage.setItem(TOKEN_KEY, keycloak.token); setSession(readSession(keycloak.token)); } });
   }, []);
-  useEffect(() => { if (!session) return; void loadProducts(session.token); void loadOrders(session, ""); void loadCart(API, session.token).then(setCart).catch((error: unknown) => setCartError(error instanceof Error ? error.message : "Unable to load cart")); }, [session]);
+  useEffect(() => { if (!session) return; void loadProducts(session.token); void loadOrders(session, ""); void graphQLRequest<{ cart: Cart }>(API, session.token, CART_QUERY).then((result) => setCart(result.cart)).catch((error: unknown) => setCartError(error instanceof Error ? error.message : "Unable to load cart")); }, [session]);
 
   async function loadProducts(token: string) {
     setStatus("Loading catalog…");
@@ -69,7 +70,7 @@ export default function Home() {
   async function loadOrders(currentSession: Session, pageToken: string) {
     if (!currentSession.userId) { setOrdersError("Your access token does not contain a user ID, so order history cannot be scoped safely."); return; }
     setOrdersError("");
-    try { const query = new URLSearchParams({ customer_id: currentSession.userId, page_size: "10" }); if (pageToken) query.set("page_token", pageToken); const result = await request<OrdersResponse>(`/orders?${query.toString()}`, {}, currentSession.token); setOrders(pageToken ? (current) => [...current, ...(result.orders ?? [])] : result.orders ?? []); setNextOrdersToken(result.nextPageToken ?? result.next_page_token ?? ""); }
+    try { const result = await graphQLRequest<{ orders: { orders: GraphQLOrder[]; nextPageToken?: string } }>(API, currentSession.token, ORDERS_QUERY, { pageSize: 10, pageToken: pageToken || null }); const mapped = (result.orders.orders ?? []).map((order) => ({ orderId: order.id, customerId: order.customerId, status: order.status, totalMinor: order.totalMinor, currency: order.currency, createdAt: order.createdAt })); setOrders(pageToken ? (current) => [...current, ...mapped] : mapped); setNextOrdersToken(result.orders.nextPageToken ?? ""); }
     catch (error) { setOrdersError(error instanceof Error ? error.message : "Unable to load orders"); }
   }
   async function loadAdmin(currentSession: Session) {
@@ -86,15 +87,15 @@ export default function Home() {
     event.preventDefault(); setOrderResult("Placing order…"); if (!session?.userId) { setOrderResult("Unable to place an order without a user ID in the access token."); return; }
     const lines = (cart.lines ?? []).map((line) => ({ productId: line.productId ?? line.product_id ?? "", quantity: line.quantity ?? 0 })).filter((line) => line.productId && line.quantity > 0);
     if (lines.length === 0) { setOrderResult("Add at least one product to your cart before checkout."); return; }
-    try { const result = await request<{ order?: Order }>("/orders", { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ customerId: session.userId, lines }) }, session.token); await emptyCart(API, session.token); setCart({ lines: [] }); setOrderResult(`Order ${orderID(result.order ?? {}) || "created"} placed.`); await loadOrders(session, ""); }
+    try { const result = await graphQLRequest<{ createOrder: GraphQLOrder }>(API, session.token, CREATE_ORDER_MUTATION, { lines, idempotencyKey: crypto.randomUUID() }); await graphQLRequest(API, session.token, CLEAR_CART_MUTATION); setCart({ lines: [] }); setOrderResult(`Order ${result.createOrder.id || "created"} placed.`); await loadOrders(session, ""); }
     catch (error) { setOrderResult(error instanceof Error ? error.message : "Unable to place order"); }
   }
   async function cancelOrder(id: string) { if (!session || !window.confirm("Cancel this order?")) return; try { await request(`/orders/${id}:cancel`, { method: "POST" }, session.token); await loadOrders(session, ""); } catch (error) { setOrdersError(error instanceof Error ? error.message : "Unable to cancel order"); } }
   async function changeRole(userID: string, role: string, method: "PUT" | "DELETE") { if (!session) return; try { await request(`/admin/users/${userID}/roles/${encodeURIComponent(role)}`, { method }, session.token); await loadAdmin(session); } catch (error) { setAdminError(error instanceof Error ? error.message : "Unable to update role"); } }
   async function deleteUser(userID: string) { if (!session || !window.confirm("Delete this user?")) return; try { await request(`/admin/users/${userID}`, { method: "DELETE" }, session.token); await loadAdmin(session); } catch (error) { setAdminError(error instanceof Error ? error.message : "Unable to delete user"); } }
-  async function addToCart(productId: string) { if (!session) return; setCartError(""); const lines = [...(cart.lines ?? [])]; const existing = lines.find((line) => (line.productId ?? line.product_id) === productId); if (existing) existing.quantity = (existing.quantity ?? 0) + 1; else lines.push({ productId, quantity: 1 }); try { setCart(await saveCart(API, session.token, { ...cart, lines })); } catch (error) { setCartError(error instanceof Error ? error.message : "Unable to save cart"); } }
-  async function changeCartQuantity(productId: string, delta: number) { if (!session) return; const lines = (cart.lines ?? []).map((line) => (line.productId ?? line.product_id) === productId ? { ...line, quantity: (line.quantity ?? 0) + delta } : line).filter((line) => (line.quantity ?? 0) > 0); try { setCart(await saveCart(API, session.token, { ...cart, lines })); } catch (error) { setCartError(error instanceof Error ? error.message : "Unable to save cart"); } }
-  async function clearCart() { if (!session) return; try { await emptyCart(API, session.token); setCart({ lines: [] }); } catch (error) { setCartError(error instanceof Error ? error.message : "Unable to clear cart"); } }
+  async function addToCart(productId: string) { if (!session) return; setCartError(""); const lines = [...(cart.lines ?? [])]; const existing = lines.find((line) => (line.productId ?? line.product_id) === productId); if (existing) existing.quantity = (existing.quantity ?? 0) + 1; else lines.push({ productId, quantity: 1 }); try { const result = await graphQLRequest<{ updateCart: Cart }>(API, session.token, UPDATE_CART_MUTATION, { lines }); setCart(result.updateCart); } catch (error) { setCartError(error instanceof Error ? error.message : "Unable to save cart"); } }
+  async function changeCartQuantity(productId: string, delta: number) { if (!session) return; const lines = (cart.lines ?? []).map((line) => (line.productId ?? line.product_id) === productId ? { ...line, quantity: (line.quantity ?? 0) + delta } : line).filter((line) => (line.quantity ?? 0) > 0); try { const result = await graphQLRequest<{ updateCart: Cart }>(API, session.token, UPDATE_CART_MUTATION, { lines }); setCart(result.updateCart); } catch (error) { setCartError(error instanceof Error ? error.message : "Unable to save cart"); } }
+  async function clearCart() { if (!session) return; try { const result = await graphQLRequest<{ clearCart: Cart }>(API, session.token, CLEAR_CART_MUTATION); setCart(result.clearCart); } catch (error) { setCartError(error instanceof Error ? error.message : "Unable to clear cart"); } }
   function logout() { window.sessionStorage.removeItem(TOKEN_KEY); setSession(null); setProducts([]); setOrders([]); setUsers([]); setCart({ lines: [] }); if (OIDC_ENABLED) void logoutOIDC(); }
 
   if (!session) return <main className="auth-shell"><div className="auth-art"><span className="eyebrow">STOREMESH / EVERYDAY GOODS</span><h1>Good things,<br />thoughtfully chosen.</h1><p>Useful objects for calmer desks, slower mornings, and better days.</p></div><section className="card auth-card"><span className="eyebrow">WELCOME BACK</span><h2>Sign in to your store</h2><form onSubmit={login}><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label><button type="submit">Continue</button></form><p className="error">{loginError}</p></section></main>;

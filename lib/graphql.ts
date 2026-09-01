@@ -20,3 +20,17 @@ export const PRODUCT_QUERY = `query Products($pageSize: Int, $status: ProductSta
   }
 }`;
 
+export const CART_QUERY = `query Cart { cart { customerId lines { productId quantity } } }`;
+export const ORDERS_QUERY = `query Orders($pageSize: Int, $pageToken: String, $status: OrderStatus) {
+  orders(pageSize: $pageSize, pageToken: $pageToken, status: $status) {
+    orders { id customerId status totalMinor currency createdAt }
+    nextPageToken
+  }
+}`;
+export const UPDATE_CART_MUTATION = `mutation UpdateCart($lines: [CartLineInput!]!) {
+  updateCart(lines: $lines) { customerId lines { productId quantity } }
+}`;
+export const CLEAR_CART_MUTATION = `mutation ClearCart { clearCart { customerId lines { productId quantity } } }`;
+export const CREATE_ORDER_MUTATION = `mutation CreateOrder($lines: [OrderLineInput!]!, $idempotencyKey: String!) {
+  createOrder(lines: $lines, idempotencyKey: $idempotencyKey) { id customerId status totalMinor currency createdAt }
+}`;
