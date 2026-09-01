@@ -13,6 +13,15 @@ NEXT_PUBLIC_BFF_URL=http://localhost:8080/api/v1 npm run dev
 In Kubernetes, browser requests use the same-origin `/api/v1` path and
 Next.js rewrites them to the internal BFF using `BFF_INTERNAL_URL`.
 
+## Persistent cart
+
+The storefront loads the authenticated customer's cart from `GET /cart` and
+saves changes through `PUT /cart`; `DELETE /cart` clears it. Cart state is
+owned by Order Service persistence behind the BFF, so the same customer can
+resume the cart from another signed-in client. The current MVP exposes a
+saved-cart panel and selected-product add action; richer line editing and
+checkout confirmation are the next UI increment.
+
 The access token is used to establish the current user context for navigation
 and to scope customer order-history requests. Backend authorization remains the
 source of truth; decoded roles must not be treated as a security boundary.
