@@ -19,8 +19,8 @@ The storefront loads the authenticated customer's cart from `GET /cart` and
 saves changes through `PUT /cart`; `DELETE /cart` clears it. Cart state is
 owned by Order Service persistence behind the BFF, so the same customer can
 resume the cart from another signed-in client. The current MVP exposes a
-saved-cart panel and selected-product add action; richer line editing and
-checkout confirmation are the next UI increment.
+saved-cart panel with product labels, quantity controls, removal, and clear
+actions; checkout confirmation remains the next UI increment.
 
 The access token is used to establish the current user context for navigation
 and to scope customer order-history requests. Backend authorization remains the
