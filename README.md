@@ -20,7 +20,8 @@ saves changes through `PUT /cart`; `DELETE /cart` clears it. Cart state is
 owned by Order Service persistence behind the BFF, so the same customer can
 resume the cart from another signed-in client. The current MVP exposes a
 saved-cart panel with product labels, quantity controls, removal, and clear
-actions; checkout confirmation remains the next UI increment.
+actions. Checkout submits every saved line with an idempotency key and clears
+the server cart only after the order succeeds.
 
 The access token is used to establish the current user context for navigation
 and to scope customer order-history requests. Backend authorization remains the

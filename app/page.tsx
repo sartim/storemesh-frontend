@@ -83,7 +83,9 @@ export default function Home() {
   }
   async function createOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setOrderResult("Placing order…"); if (!session?.userId) { setOrderResult("Unable to place an order without a user ID in the access token."); return; }
-    try { const result = await request<{ order?: Order }>("/orders", { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ customerId: session.userId, lines: [{ productId: selectedProduct, quantity }] }) }, session.token); setOrderResult(`Order ${orderID(result.order ?? {}) || "created"} placed.`); await loadOrders(session, ""); }
+    const lines = (cart.lines ?? []).map((line) => ({ productId: line.productId ?? line.product_id ?? "", quantity: line.quantity ?? 0 })).filter((line) => line.productId && line.quantity > 0);
+    if (lines.length === 0) { setOrderResult("Add at least one product to your cart before checkout."); return; }
+    try { const result = await request<{ order?: Order }>("/orders", { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ customerId: session.userId, lines }) }, session.token); await emptyCart(API, session.token); setCart({ lines: [] }); setOrderResult(`Order ${orderID(result.order ?? {}) || "created"} placed.`); await loadOrders(session, ""); }
     catch (error) { setOrderResult(error instanceof Error ? error.message : "Unable to place order"); }
   }
   async function cancelOrder(id: string) { if (!session || !window.confirm("Cancel this order?")) return; try { await request(`/orders/${id}:cancel`, { method: "POST" }, session.token); await loadOrders(session, ""); } catch (error) { setOrdersError(error instanceof Error ? error.message : "Unable to cancel order"); } }
