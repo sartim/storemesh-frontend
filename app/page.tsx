@@ -5,6 +5,7 @@ import { keycloak, logoutOIDC, refreshOIDCToken, startOIDCLogin } from "../lib/o
 import { Cart } from "../lib/cart";
 import { CartPanel } from "../components/CartPanel";
 import { CART_QUERY, CLEAR_CART_MUTATION, CREATE_ORDER_MUTATION, graphQLRequest, ORDERS_QUERY, PRODUCT_QUERY, UPDATE_CART_MUTATION } from "../lib/graphql";
+import { FeatureFlags, loadFeatureFlags } from "../lib/features";
 
 type Product = { id: string; sku?: string; name: string; description?: string; priceMinor?: number; currency?: string };
 type AuthResponse = { accessToken?: string; access_token?: string };
@@ -54,13 +55,14 @@ export default function Home() {
   const [selectedProduct, setSelectedProduct] = useState(""); const [quantity, setQuantity] = useState(1); const [activeView, setActiveView] = useState<"shop" | "orders" | "admin">("shop"); const [nextOrdersToken, setNextOrdersToken] = useState(""); const [sidebarOpen, setSidebarOpen] = useState(false); const [searchTerm, setSearchTerm] = useState("");
   const [loginError, setLoginError] = useState(""); const [status, setStatus] = useState(""); const [orderResult, setOrderResult] = useState(""); const [ordersError, setOrdersError] = useState(""); const [adminError, setAdminError] = useState("");
   const [cart, setCart] = useState<Cart>({ lines: [] }); const [cartError, setCartError] = useState("");
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>({});
 
   useEffect(() => { const saved = window.sessionStorage.getItem(TOKEN_KEY); if (saved) setSession(readSession(saved)); }, []);
   useEffect(() => {
     if (!OIDC_ENABLED) return;
     void startOIDCLogin().then(async () => { await refreshOIDCToken(); if (keycloak.token) { window.sessionStorage.setItem(TOKEN_KEY, keycloak.token); setSession(readSession(keycloak.token)); } });
   }, []);
-  useEffect(() => { if (!session) return; void loadProducts(session.token); void loadOrders(session, ""); void graphQLRequest<{ cart: Cart }>(API, session.token, CART_QUERY).then((result) => setCart(result.cart)).catch((error: unknown) => setCartError(error instanceof Error ? error.message : "Unable to load cart")); }, [session]);
+  useEffect(() => { if (!session) return; void loadFeatureFlags(API, session.token).then(setFeatureFlags); void loadProducts(session.token); void loadOrders(session, ""); void graphQLRequest<{ cart: Cart }>(API, session.token, CART_QUERY).then((result) => setCart(result.cart)).catch((error: unknown) => setCartError(error instanceof Error ? error.message : "Unable to load cart")); }, [session]);
 
   async function loadProducts(token: string) {
     setStatus("Loading catalog…");
