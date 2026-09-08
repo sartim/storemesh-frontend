@@ -5,10 +5,21 @@ catalog browsing, order creation, customer order history with pagination and
 cancellation, and an admin workspace for user and role management through the
 BFF.
 
+## Run locally without Docker or Kubernetes
+
+Requires Node.js 22 or newer and npm. Install dependencies and start the
+Next.js development server as a native process:
+
 ```sh
-npm install
+npm ci
 NEXT_PUBLIC_BFF_URL=http://localhost:8080/api/v1 npm run dev
 ```
+
+Open `http://localhost:3000`. The UI shell can render without the BFF, but
+catalog, cart, checkout, orders, and admin actions require the BFF at
+`http://localhost:8080` and the domain services on their local gRPC ports.
+Start those processes using the service READMEs and the BFF local-run guide.
+The browser calls only the BFF; it never calls a domain service directly.
 
 In Kubernetes, browser requests use the same-origin `/api/v1` path and
 Next.js rewrites them to the internal BFF using `BFF_INTERNAL_URL`.
