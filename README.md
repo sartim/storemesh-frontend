@@ -21,6 +21,12 @@ catalog, cart, checkout, orders, and admin actions require the BFF at
 Start those processes using the service READMEs and the BFF local-run guide.
 The browser calls only the BFF; it never calls a domain service directly.
 
+The local catalog contains 32 demo products when Product Service runs without
+`DATABASE_URL`. Product cards use deterministic `picsum.photos` URLs derived
+from each SKU, so the seeded catalog has varied visuals without adding a large
+binary asset bundle. Replace `productImage` in `app/page.tsx` with the media
+service URL when product media is introduced.
+
 In Kubernetes, browser requests use the same-origin `/api/v1` path and
 Next.js rewrites them to the internal BFF using `BFF_INTERNAL_URL`.
 
