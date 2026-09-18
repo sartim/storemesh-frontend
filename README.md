@@ -65,6 +65,11 @@ Configure `NEXT_PUBLIC_KEYCLOAK_ISSUER`, `NEXT_PUBLIC_KEYCLOAK_REALM`, and
 enabling the OIDC bootstrap. The BFF remains the only API endpoint used by the
 browser.
 
+Canonical v1 BFF response shapes are copied under
+`tests/fixtures/bff/v1/` for browser contract and end-to-end tests. Keep these
+golden fixtures aligned with `storemesh-bff/api/graphql/fixtures/v1/` when the
+GraphQL schema changes.
+
 When `NEXT_PUBLIC_KEYCLOAK_ISSUER` is set, the app uses Keycloak
 `login-required` with Authorization Code + PKCE (`S256`) and no longer renders
 the password-login flow. The current compatibility form is used only when the
