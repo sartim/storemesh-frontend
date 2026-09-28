@@ -75,3 +75,20 @@ When `NEXT_PUBLIC_KEYCLOAK_ISSUER` is set, the app uses Keycloak
 the password-login flow. The current compatibility form is used only when the
 issuer variable is absent. Local development uses the `storemesh-web` client
 with a `http://localhost:3000/*` redirect URI.
+
+## Live BFF browser integration
+
+The deterministic Playwright flow uses fixtures by default. To run the
+browser against independently running services, provide the BFF root URL and
+a valid Keycloak access token:
+
+```sh
+STOREMESH_BFF_URL='http://localhost:8080/api/v1' \
+STOREMESH_ACCESS_TOKEN='...' \
+npm run test:e2e -- tests/live-commerce.spec.ts
+```
+
+The live flow reads a product, persists one cart line, creates an idempotent
+order, and verifies the order result. It is skipped when either variable is
+missing and should use development data only. Use the HTTPS ngrok BFF origin
+for a physical-device or shared development session.

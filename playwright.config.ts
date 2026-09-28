@@ -9,7 +9,8 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "NEXT_PUBLIC_BFF_URL=http://127.0.0.1:3100/api/v1 npm run dev -- --hostname 127.0.0.1 --port 3100",
+    command: "npm run dev -- --hostname 127.0.0.1 --port 3100",
+    env: { NEXT_PUBLIC_BFF_URL: process.env.STOREMESH_BFF_URL ?? "http://127.0.0.1:3100/api/v1" },
     url: "http://127.0.0.1:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
