@@ -34,8 +34,19 @@ async function request<T>(path: string, options: RequestInit = {}, token = ""): 
 function readSession(token: string): Session {
   try {
     const encoded = token.split(".")[1];
-    const payload = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string; email?: string; roles?: string[] };
-    return { token, userId: payload.sub ?? "", email: payload.email ?? "", roles: payload.roles ?? [] };
+    const payload = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/"))) as {
+      sub?: string;
+      email?: string;
+      roles?: string[];
+      realm_access?: { roles?: string[] };
+      resource_access?: Record<string, { roles?: string[] }>;
+    };
+    const roles = new Set(payload.roles ?? []);
+    for (const role of payload.realm_access?.roles ?? []) roles.add(role);
+    for (const access of Object.values(payload.resource_access ?? {})) {
+      for (const role of access.roles ?? []) roles.add(role);
+    }
+    return { token, userId: payload.sub ?? "", email: payload.email ?? "", roles: [...roles] };
   } catch {
     return { token, userId: "", email: "", roles: [] };
   }
