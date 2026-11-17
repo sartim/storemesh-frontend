@@ -9,6 +9,7 @@ const products = [
 test("customer can sign in, add to cart, and place an order", async ({ page }) => {
   let cartLines: Array<{ productId: string; quantity: number }> = [];
   let orderCreated = false;
+  let idempotencyKey = "";
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -22,7 +23,7 @@ test("customer can sign in, add to cart, and place an order", async ({ page }) =
       return;
     }
     if (url.pathname.endsWith("/graphql")) {
-      const body = request.postDataJSON() as { query?: string; variables?: { lines?: Array<{ productId: string; quantity: number }> } };
+      const body = request.postDataJSON() as { query?: string; variables?: { lines?: Array<{ productId: string; quantity: number }>; idempotencyKey?: string } };
       const query = body.query ?? "";
       if (query.includes("query Products")) {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: { products: { products, nextPageToken: null } } }) });
@@ -35,6 +36,7 @@ test("customer can sign in, add to cart, and place an order", async ({ page }) =
         cartLines = [];
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: { clearCart: { customerId: "customer-1", lines: [] } } }) });
       } else if (query.includes("mutation CreateOrder")) {
+        idempotencyKey = body.variables?.idempotencyKey ?? "";
         orderCreated = true;
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: { createOrder: { id: "order-demo-1", customerId: "customer-1", status: "ORDER_STATUS_PENDING", totalMinor: 8900, currency: "USD", createdAt: "2026-09-10T00:00:00Z" } } }) });
       } else if (query.includes("query Orders")) {
@@ -57,9 +59,15 @@ test("customer can sign in, add to cart, and place an order", async ({ page }) =
   await expect(page.getByRole("img", { name: "Halo Desk Lamp" })).toBeVisible();
   await page.getByRole("button", { name: "Add to cart", exact: true }).first().click();
   await expect(page.getByRole("button", { name: "Open cart, 1 items" })).toBeVisible();
-  await page.getByRole("button", { name: "Open cart, 1 items" }).click();
+  await page.getByRole("button", { name: "Open cart, 1 items" }).click({ force: true });
+  await expect(page.getByRole("heading", { name: "Shopping cart" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "1 item" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Open cart, 1 items" })).toBeVisible();
+  await page.getByRole("button", { name: "Open cart, 1 items" }).click({ force: true });
   await expect(page.getByRole("heading", { name: "Shopping cart" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "1 item" })).toBeVisible();
   await page.getByRole("button", { name: "Place order", exact: true }).click();
+  expect(idempotencyKey).not.toBe("");
   await expect(page.getByText("Order order-demo-1 placed.")).toBeVisible();
 });
