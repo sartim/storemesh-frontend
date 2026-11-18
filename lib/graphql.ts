@@ -34,3 +34,6 @@ export const CLEAR_CART_MUTATION = `mutation ClearCart { clearCart { customerId 
 export const CREATE_ORDER_MUTATION = `mutation CreateOrder($lines: [OrderLineInput!]!, $idempotencyKey: String!) {
   createOrder(lines: $lines, idempotencyKey: $idempotencyKey) { id customerId status totalMinor currency createdAt }
 }`;
+export const CANCEL_ORDER_MUTATION = `mutation CancelOrder($orderId: ID!) {
+  cancelOrder(orderId: $orderId) { id customerId status totalMinor currency createdAt }
+}`;

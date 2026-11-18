@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { keycloak, logoutOIDC, refreshOIDCToken, startOIDCLogin } from "../lib/oidc";
 import { Cart } from "../lib/cart";
 import { CartPanel } from "../components/CartPanel";
-import { CART_QUERY, CLEAR_CART_MUTATION, CREATE_ORDER_MUTATION, graphQLRequest, ORDERS_QUERY, PRODUCT_QUERY, UPDATE_CART_MUTATION } from "../lib/graphql";
+import { CART_QUERY, CANCEL_ORDER_MUTATION, CLEAR_CART_MUTATION, CREATE_ORDER_MUTATION, graphQLRequest, ORDERS_QUERY, PRODUCT_QUERY, UPDATE_CART_MUTATION } from "../lib/graphql";
 import { FeatureFlags, loadFeatureFlags } from "../lib/features";
 
 type Product = { id: string; sku?: string; name: string; description?: string; priceMinor?: number; currency?: string };
@@ -117,7 +117,7 @@ export default function Home() {
     try { const result = await graphQLRequest<{ createOrder: GraphQLOrder }>(API, session.token, CREATE_ORDER_MUTATION, { lines, idempotencyKey: crypto.randomUUID() }); await graphQLRequest(API, session.token, CLEAR_CART_MUTATION); setCart({ lines: [] }); setOrderResult(`Order ${result.createOrder.id || "created"} placed.`); await loadOrders(session, ""); }
     catch (error) { setOrderResult(error instanceof Error ? error.message : "Unable to place order"); }
   }
-  async function cancelOrder(id: string) { if (!session || !window.confirm("Cancel this order?")) return; try { await request(`/orders/${id}:cancel`, { method: "POST" }, session.token); await loadOrders(session, ""); } catch (error) { setOrdersError(error instanceof Error ? error.message : "Unable to cancel order"); } }
+  async function cancelOrder(id: string) { if (!session || !window.confirm("Cancel this order?")) return; try { await graphQLRequest<{ cancelOrder: GraphQLOrder }>(API, session.token, CANCEL_ORDER_MUTATION, { orderId: id }); await loadOrders(session, ""); } catch (error) { setOrdersError(error instanceof Error ? error.message : "Unable to cancel order"); } }
   async function changeRole(userID: string, role: string, method: "PUT" | "DELETE") { if (!session) return; try { await request(`/admin/users/${userID}/roles/${encodeURIComponent(role)}`, { method }, session.token); await loadAdmin(session); } catch (error) { setAdminError(error instanceof Error ? error.message : "Unable to update role"); } }
   async function deleteUser(userID: string) { if (!session || !window.confirm("Delete this user?")) return; try { await request(`/admin/users/${userID}`, { method: "DELETE" }, session.token); await loadAdmin(session); } catch (error) { setAdminError(error instanceof Error ? error.message : "Unable to delete user"); } }
   async function addToCart(productId: string) { if (!session) return; setCartError(""); const lines = [...(cart.lines ?? [])]; const existing = lines.find((line) => (line.productId ?? line.product_id) === productId); if (existing) existing.quantity = (existing.quantity ?? 0) + 1; else lines.push({ productId, quantity: 1 }); try { const result = await graphQLRequest<{ updateCart: Cart }>(API, session.token, UPDATE_CART_MUTATION, { lines }); setCart(result.updateCart); } catch (error) { setCartError(error instanceof Error ? error.message : "Unable to save cart"); } }
